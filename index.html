@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CUP Metadata Verifier</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        .drag-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 0.375rem;
+            padding: 1rem 2rem;
+            text-align: center;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .drag-area:hover, .drag-area.dragover {
+            background: #e3f2fd;
+            border-color: #0d6efd;
+        }
+        .fade-in {
+            animation: fadeIn 0.4s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .results-summary {
+            background: #f8f9fa;
+            border-radius: 0.375rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #dee2e6;
+        }
+        .compact-card .card-header { padding: 0.5rem 1rem; }
+        .compact-card .card-body   { padding: 0.75rem 1rem; }
+        .compact-list li { padding: 0.25rem 0; }
+        .card.border-success { border-width: 2px; }
+        .card.border-danger  { border-width: 2px; }
+        .list-unstyled li:hover { background: #f8f9fa; border-radius: 0.25rem; }
+        .processing-spinner { display: none; }
+        #uploadArea { display: flex; }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-9 col-xl-8">
+            <div class="card shadow">
+
+                <!-- Header -->
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0">
+                        <i class="bi bi-file-earmark-check me-2"></i>CUP Metadata Verifier
+                    </h3>
+                    <small class="opacity-75">Upload your Excel metadata file to check it against CUP specification rules</small>
+                </div>
+
+                <div class="card-body p-4">
+
+                    <!-- Upload Area -->
+                    <div id="uploadArea">
+                        <div class="drag-area w-100" id="dropZone">
+                            <input type="file" class="d-none" id="fileInput" accept=".xlsx,.xls">
+                            <p class="mb-2 text-muted">Drag &amp; drop an Excel file here, or</p>
+                            <button class="btn btn-primary btn-sm" id="browseBtn">
+                                <i class="bi bi-folder2-open me-2"></i>Browse Files
+                            </button>
+                            <p class="text-muted small mt-2 mb-0">Accepts .xlsx and .xls</p>
+                        </div>
+                    </div>
+
+                    <!-- Processing Spinner -->
+                    <div class="text-center my-4 processing-spinner" id="processingSpinner">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Processing...</span>
+                        </div>
+                        <p class="mt-2 text-muted" id="processingText">Reading file…</p>
+                    </div>
+
+                    <!-- Status Alert -->
+                    <div class="alert d-none mt-3" id="statusAlert" role="alert"></div>
+
+                    <!-- Results Panel (hidden until data loaded) -->
+                    <div id="resultsPanel" style="display:none;">
+
+                        <!-- Action Bar -->
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="failedOnlyToggle">
+                                    <label class="form-check-label" for="failedOnlyToggle">Show failed only</label>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-danger" id="downloadFailedBtn">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>Download Failed Summary
+                                </button>
+                                <button class="btn btn-outline-primary" id="downloadFullBtn">
+                                    <i class="bi bi-download me-1"></i>Download Full Summary
+                                </button>
+                                <button class="btn btn-outline-secondary" id="clearBtn">
+                                    <i class="bi bi-trash3 me-1"></i>Clear
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Results Summary Bar -->
+                        <div class="results-summary" id="resultsSummary">
+                            <div class="row text-center">
+                                <div class="col">
+                                    <h6 class="mb-0 text-muted small">Total Records</h6>
+                                    <span class="h4" id="totalRecords">0</span>
+                                </div>
+                                <div class="col">
+                                    <h6 class="mb-0 text-muted small">Showing</h6>
+                                    <span class="h4 text-info" id="totalShowing">0</span>
+                                </div>
+                                <div class="col">
+                                    <h6 class="mb-0 text-muted small">Passed</h6>
+                                    <span class="h4 text-success" id="totalPassed">0</span>
+                                </div>
+                                <div class="col">
+                                    <h6 class="mb-0 text-muted small">Failed</h6>
+                                    <span class="h4 text-danger" id="totalFailed">0</span>
+                                </div>
+                            </div>
+
+                            <!-- Processing Summary -->
+                            <hr class="my-3">
+                            <div class="row text-center" id="processSummaryRow">
+                                <div class="col">
+                                    <h6 class="text-muted small mb-1">Binding Styles</h6>
+                                    <div class="small" id="bindingSummary">-</div>
+                                </div>
+                                <div class="col">
+                                    <h6 class="text-muted small mb-1">Colour Types</h6>
+                                    <div class="small" id="colourSummary">-</div>
+                                </div>
+                                <div class="col">
+                                    <h6 class="text-muted small mb-1">Quality Routes</h6>
+                                    <div class="small" id="qualitySummary">-</div>
+                                </div>
+                                <div class="col">
+                                    <h6 class="text-muted small mb-1">With Jacket</h6>
+                                    <div class="small" id="jacketSummary">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Result Cards -->
+                        <div id="resultsArea" class="row g-3"></div>
+                    </div>
+
+                </div><!-- /card-body -->
+            </div><!-- /card -->
+        </div>
+    </div>
+</div>
+
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+
+const CONFIG = {
+    VALID_BINDINGS: new Set(['Cased','Limp']),
+    VALID_PAPERS:   new Set(['CUP MunkenPure 80 gsm','Navigator 80 gsm','Clairjet 90 gsm','Magno Matt 90 gsm']),
+    VALID_COLOURS:  new Set(['Mono','Colour']),
+    VALID_ROUTES:   new Set(['Standard','Premium']),
+    VALID_TRIM_SIZES: new Set(['140x216','152x229','156x234','170x244','189x246','178x254','203x254','216x280']),
+
+    PAPER_COMPATIBILITY: {
+        'CUP MunkenPure 80 gsm': { allowedColours: new Set(['Mono']),          allowedRoutes: new Set(['Standard']) },
+        'Navigator 80 gsm':      { allowedColours: new Set(['Mono']),          allowedRoutes: new Set(['Standard']) },
+        'Clairjet 90 gsm':       { allowedColours: new Set(['Colour']),        allowedRoutes: new Set(['Standard']) },
+        'Magno Matt 90 gsm':     { allowedColours: new Set(['Mono','Colour']), allowedRoutes: new Set(['Premium'])  }
+    },
+
+    PAPER_SPECS: {
+        'CUP MunkenPure 80 gsm': { grammage: 80,  volume: 13   },
+        'Navigator 80 gsm':      { grammage: 80,  volume: 12.5 },
+        'Clairjet 90 gsm':       { grammage: 90,  volume: 10   },
+        'Magno Matt 90 gsm':     { grammage: 90,  volume: 10   }
+    },
+
+    COLUMN_MAPPING: {
+        'Master ISBN 13':              'isbn',
+        'full_title_for_export':       'title',
+        'pod_ExtentMod2':              'extent',
+        'pod_xml_TrimHeight':          'trim_height',
+        'pod_xml_TrimWidth':           'trim_width',
+        'pod_xml_TJ_PaperStock':       'paper',
+        'pod_Colourspace':             'colour',
+        'pod_xml_TJ_QualityOption':    'quality',
+        'pod_ColourBook_fullBleed':    'bleed',
+        'pod_TJ_BindType_c':           'binding_style',
+        'pod_CoverLaminate':           'lamination',
+        'pod_xml_Jacket':              'jacket',
+        'pod_xml_TJ_JacketLamination': 'jacket_lamination',
+        'pod_xml_TJ_FlapSize':         'flap_size',
+        'pod_xml_TJ_WibalinColour':    'wibalin_colour',
+        'pod_xml_SetISBN':             'set_isbn'
+    },
+
+    COLUMN_ORDER: [
+        'isbn','title','trim_height','trim_width','extent','spine',
+        'paper','gsm','colour','quality','bleed','binding_style',
+        'lamination','jacket','jacket_lamination','flap_size','wibalin_colour','set_isbn'
+    ],
+
+    VALUE_MAPPING: {
+        paper:      { 'Cream 80gsm': 'CUP MunkenPure 80 gsm', 'White 80gsm': 'Navigator 80 gsm' },
+        lamination: { 'Matte': 'Matt' }
+    },
+
+    SPINE_CALCULATION_FACTOR: 20000,
+    HARDBACK_SPINE_ADDITION:  4
+};
+
+// ─── PAPER HELPERS ────────────────────────────────────────────────────────────
+
+function applyPaperMapping(paperValue, qualityValue) {
+    if (CONFIG.VALUE_MAPPING.paper[paperValue]) return CONFIG.VALUE_MAPPING.paper[paperValue];
+    if (paperValue === 'Matte Coated 90gsm') {
+        const q = String(qualityValue).toLowerCase();
+        if (q.includes('standard')) return 'Clairjet 90 gsm';
+        if (q.includes('premium'))  return 'Magno Matt 90 gsm';
+    }
+    return paperValue;
+}
+
+function calculateSpine(extent, paperName, bindingStyle) {
+    const spec = CONFIG.PAPER_SPECS[paperName];
+    if (!spec) return 0;
+    const base = Math.round((extent * spec.grammage * spec.volume) / CONFIG.SPINE_CALCULATION_FACTOR);
+    return bindingStyle.toLowerCase() === 'cased' ? base + CONFIG.HARDBACK_SPINE_ADDITION : base;
+}
+
+function extractGSM(paperName) {
+    const spec = CONFIG.PAPER_SPECS[paperName];
+    if (spec) return spec.grammage.toString();
+    const m = paperName.match(/(\d+)\s*gsm/i);
+    return m ? m[1] : '';
+}
+
+// ─── VALIDATOR ────────────────────────────────────────────────────────────────
+
+function validateRecord(rec) {
+    const results = [];
+
+    function add(test, result, message) { results.push({ test, result, message }); }
+
+    // Required fields
+    const required = { ISBN: rec.isbn, 'Trim Height': rec.trim_height, 'Trim Width': rec.trim_width,
+        Extent: rec.extent, Paper: rec.paper, Colour: rec.colour, Quality: rec.quality, 'Binding Style': rec.binding_style };
+    const missing = Object.entries(required).filter(([,v]) => !v || String(v).trim() === '').map(([k]) => k);
+    add('Required Fields', missing.length === 0,
+        missing.length === 0 ? 'All required fields are present' : `Missing or empty: ${missing.join(', ')}`);
+
+    // Binding
+    const validBinding = CONFIG.VALID_BINDINGS.has(rec.binding_style);
+    add('Binding Style', validBinding,
+        validBinding ? `Valid binding: ${rec.binding_style}` : `Invalid binding: '${rec.binding_style}' (must be Cased or Limp)`);
+
+    // Paper
+    const validPaper = CONFIG.VALID_PAPERS.has(rec.paper);
+    add('Paper Type', validPaper,
+        validPaper ? `Valid paper: ${rec.paper}` : `Invalid paper: '${rec.paper}' (must be CUP MunkenPure 80 gsm, Navigator 80 gsm, Clairjet 90 gsm, or Magno Matt 90 gsm)`);
+
+    // Colour
+    const validColour = CONFIG.VALID_COLOURS.has(rec.colour);
+    add('Colour', validColour,
+        validColour ? `Valid colour: ${rec.colour}` : `Invalid colour: '${rec.colour}' (must be Mono or Colour)`);
+
+    // Route/Quality
+    const validRoute = CONFIG.VALID_ROUTES.has(rec.quality);
+    add('Quality/Route', validRoute,
+        validRoute ? `Valid route: ${rec.quality}` : `Invalid route: '${rec.quality}' (must be Standard or Premium)`);
+
+    // Trim size
+    const w = parseFloat(rec.trim_width), h = parseFloat(rec.trim_height);
+    if (isNaN(w) || isNaN(h) || w <= 0 || h <= 0) {
+        add('Trim Size', false, `Invalid dimensions: ${rec.trim_width}x${rec.trim_height}mm (must be positive numbers)`);
+    } else {
+        const key = `${Math.round(w)}x${Math.round(h)}`;
+        const validTrim = CONFIG.VALID_TRIM_SIZES.has(key);
+        add('Trim Size', validTrim,
+            validTrim ? `Valid trim size: ${key}mm` : `Invalid trim size: ${key}mm (must be one of: 140x216, 152x229, 156x234, 170x244, 189x246, 178x254, 203x254, 216x280)`);
+    }
+
+    // Colour/Paper compatibility
+    if (CONFIG.VALID_PAPERS.has(rec.paper) && CONFIG.VALID_COLOURS.has(rec.colour)) {
+        const compat = CONFIG.PAPER_COMPATIBILITY[rec.paper];
+        const ok = compat.allowedColours.has(rec.colour);
+        add('Colour/Paper Compatibility', ok,
+            ok ? `Colour '${rec.colour}' is compatible with ${rec.paper}`
+               : `Colour '${rec.colour}' is not compatible with ${rec.paper} (allowed: ${[...compat.allowedColours].join(', ')})`);
+    }
+
+    // Route/Paper compatibility
+    if (CONFIG.VALID_PAPERS.has(rec.paper) && CONFIG.VALID_ROUTES.has(rec.quality)) {
+        const compat = CONFIG.PAPER_COMPATIBILITY[rec.paper];
+        const ok = compat.allowedRoutes.has(rec.quality);
+        add('Route/Paper Compatibility', ok,
+            ok ? `Route '${rec.quality}' is compatible with ${rec.paper}`
+               : `Route '${rec.quality}' is not compatible with ${rec.paper} (allowed: ${[...compat.allowedRoutes].join(', ')})`);
+    }
+
+    return results;
+}
+
+// ─── APP STATE ────────────────────────────────────────────────────────────────
+
+let validationResults = [];
+let showFailedOnly    = false;
+
+// ─── DOM REFS ─────────────────────────────────────────────────────────────────
+
+const dropZone          = document.getElementById('dropZone');
+const fileInput         = document.getElementById('fileInput');
+const browseBtn         = document.getElementById('browseBtn');
+const processingSpinner = document.getElementById('processingSpinner');
+const processingText    = document.getElementById('processingText');
+const statusAlert       = document.getElementById('statusAlert');
+const uploadArea        = document.getElementById('uploadArea');
+const resultsPanel      = document.getElementById('resultsPanel');
+const resultsArea       = document.getElementById('resultsArea');
+const failedOnlyToggle  = document.getElementById('failedOnlyToggle');
+const downloadFailedBtn = document.getElementById('downloadFailedBtn');
+const downloadFullBtn   = document.getElementById('downloadFullBtn');
+const clearBtn          = document.getElementById('clearBtn');
+
+// ─── EVENTS ───────────────────────────────────────────────────────────────────
+
+browseBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f && /\.(xlsx|xls)$/i.test(f.name)) handleFile(f);
+    else showStatus('error', 'Please drop an Excel file (.xlsx or .xls).');
+});
+
+failedOnlyToggle.addEventListener('change', e => { showFailedOnly = e.target.checked; renderResults(); });
+downloadFailedBtn.addEventListener('click', () => downloadReport(true));
+downloadFullBtn.addEventListener('click',   () => downloadReport(false));
+clearBtn.addEventListener('click', clearAll);
+
+// ─── FILE PROCESSING ─────────────────────────────────────────────────────────
+
+async function handleFile(file) {
+    showSpinner('Reading Excel file…');
+    uploadArea.style.display = 'none';
+    resultsPanel.style.display = 'none';
+    statusAlert.classList.add('d-none');
+
+    try {
+        const data     = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        const ws       = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+        if (jsonData.length < 2) {
+            showStatus('error', 'Excel file must contain headers and at least one data row.');
+            uploadArea.style.display = 'flex';
+            hideSpinner();
+            return;
+        }
+
+        // Map headers
+        const rawHeaders = jsonData[0].map(h => String(h).trim());
+        let mappedHeaders = rawHeaders.map(h => CONFIG.COLUMN_MAPPING[h] || h);
+
+        // Build ordered header/index arrays (insert spine & gsm as calculated)
+        const orderedHeaders = [], orderedIndices = [];
+        CONFIG.COLUMN_ORDER.forEach(col => {
+            const idx = mappedHeaders.indexOf(col);
+            if (idx !== -1) {
+                orderedHeaders.push(col); orderedIndices.push(idx);
+            } else if (col === 'spine' || col === 'gsm') {
+                orderedHeaders.push(col); orderedIndices.push(-1);
+            }
+        });
+        mappedHeaders.forEach((h, i) => {
+            if (!orderedHeaders.includes(h)) { orderedHeaders.push(h); orderedIndices.push(i); }
+        });
+
+        const rows = jsonData.slice(1)
+            .filter(row => row.some(c => c !== null && c !== undefined && c !== ''))
+            .map(row => {
+                const r = orderedIndices.map(i => i === -1 ? '' : (row[i] ?? ''));
+
+                const ei = orderedHeaders.indexOf('extent');
+                const pi = orderedHeaders.indexOf('paper');
+                const bi = orderedHeaders.indexOf('binding_style');
+                const qi = orderedHeaders.indexOf('quality');
+                const si = orderedHeaders.indexOf('spine');
+                const gi = orderedHeaders.indexOf('gsm');
+
+                if (si !== -1 && ei !== -1 && pi !== -1 && bi !== -1) {
+                    const extent  = parseInt(r[ei]) || 0;
+                    let   paper   = r[pi] ? applyPaperMapping(String(r[pi]), qi !== -1 ? r[qi] : '') : '';
+                    const binding = String(r[bi] || '');
+
+                    if (paper) r[pi] = paper;
+                    if (extent > 0 && paper && binding) r[si] = calculateSpine(extent, paper, binding).toString();
+                    if (gi !== -1 && paper)              r[gi] = extractGSM(paper);
+
+                    // Apply lamination mapping
+                    const li = orderedHeaders.indexOf('lamination');
+                    if (li !== -1 && r[li] && CONFIG.VALUE_MAPPING.lamination[r[li]]) {
+                        r[li] = CONFIG.VALUE_MAPPING.lamination[r[li]];
+                    }
+                }
+                return r;
+            });
+
+        if (rows.length === 0) {
+            showStatus('error', 'No data rows found in the Excel file.');
+            uploadArea.style.display = 'flex';
+            hideSpinner();
+            return;
+        }
+
+        updateSpinner(`Validating ${rows.length} records…`);
+
+        // Build validation results
+        validationResults = rows.map(row => {
+            const get = field => {
+                const i = orderedHeaders.indexOf(field);
+                return i !== -1 ? String(row[i] ?? '').trim() : '';
+            };
+            const rec = {
+                isbn:          get('isbn'),
+                title:         get('title'),
+                trim_height:   get('trim_height'),
+                trim_width:    get('trim_width'),
+                extent:        get('extent'),
+                paper:         get('paper'),
+                colour:        get('colour'),
+                quality:       get('quality'),
+                binding_style: get('binding_style')
+            };
+            return { isbn: rec.isbn, title: rec.title, validations: validateRecord(rec) };
+        });
+
+        // Compute processing stats
+        const getColIdx = f => orderedHeaders.indexOf(f);
+        const stats = { binding: {}, colour: {}, quality: {}, jacket: 0 };
+        rows.forEach(row => {
+            const val = (f) => { const i = getColIdx(f); return i !== -1 ? String(row[i] || '').trim() : ''; };
+            const b = val('binding_style'); if (b) stats.binding[b] = (stats.binding[b]||0)+1;
+            const c = val('colour');        if (c) stats.colour[c]  = (stats.colour[c] ||0)+1;
+            const q = val('quality');       if (q) stats.quality[q] = (stats.quality[q]||0)+1;
+            const j = val('jacket').toUpperCase(); if (j === 'Y' || j === 'YES') stats.jacket++;
+        });
+
+        document.getElementById('bindingSummary').innerHTML =
+            Object.entries(stats.binding).map(([k,v]) => `${k}: ${v}`).join('<br>') || '—';
+        document.getElementById('colourSummary').innerHTML =
+            Object.entries(stats.colour).map(([k,v]) => `${k}: ${v}`).join('<br>') || '—';
+        document.getElementById('qualitySummary').innerHTML =
+            Object.entries(stats.quality).map(([k,v]) => `${k}: ${v}`).join('<br>') || '—';
+        document.getElementById('jacketSummary').innerHTML = stats.jacket.toString();
+
+        showFailedOnly = false;
+        failedOnlyToggle.checked = false;
+        hideSpinner();
+        resultsPanel.style.display = 'block';
+        renderResults();
+        showStatus('success', `${rows.length} record${rows.length !== 1 ? 's' : ''} loaded from <strong>${escHtml(file.name)}</strong>`);
+
+    } catch (err) {
+        console.error(err);
+        showStatus('error', 'Error processing file: ' + err.message);
+        uploadArea.style.display = 'flex';
+        hideSpinner();
+    }
+}
+
+// ─── RENDER RESULTS ───────────────────────────────────────────────────────────
+
+function renderResults() {
+    const total    = validationResults.length;
+    const passed   = validationResults.filter(r => r.validations.every(v => v.result)).length;
+    const failed   = total - passed;
+    const filtered = showFailedOnly ? validationResults.filter(r => r.validations.some(v => !v.result)) : validationResults;
+
+    document.getElementById('totalRecords').textContent = total;
+    document.getElementById('totalShowing').textContent = filtered.length;
+    document.getElementById('totalPassed').textContent  = passed;
+    document.getElementById('totalFailed').textContent  = failed;
+
+    if (filtered.length === 0) {
+        resultsArea.innerHTML = `<div class="col-12 text-center text-muted py-3">
+            <i class="bi bi-check-circle text-success fs-3"></i>
+            <p class="mt-2 mb-0">All records passed — no failures to show.</p></div>`;
+        return;
+    }
+
+    resultsArea.innerHTML = filtered.map((r, fi) => {
+        const origIdx  = validationResults.indexOf(r);
+        const hasError = r.validations.some(v => !v.result);
+        const label    = r.isbn || `Row ${origIdx + 1}`;
+        return `
+        <div class="col-12 fade-in">
+            <div class="card ${hasError ? 'border-danger' : 'border-success'} compact-card">
+                <div class="card-header ${hasError ? 'bg-danger' : 'bg-success'} bg-opacity-10 d-flex justify-content-between align-items-center py-2">
+                    <div>
+                        <strong>${escHtml(label)}</strong>
+                        ${r.title ? `<span class="ms-2 text-muted small">${escHtml(r.title)}</span>` : ''}
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="copyResult(${origIdx})" id="copy-btn-${origIdx}">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                        <span class="badge bg-${hasError ? 'danger' : 'success'}">${hasError ? 'Failed' : 'Passed'}</span>
+                    </div>
+                </div>
+                <div class="card-body py-2">
+                    <ul class="list-unstyled mb-0 compact-list">
+                        ${r.validations.map(v => `
+                        <li class="d-flex align-items-start py-1">
+                            <i class="bi ${v.result ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'} me-2 flex-shrink-0 mt-1"></i>
+                            <small><strong>${escHtml(v.test)}:</strong> ${escHtml(v.message)}</small>
+                        </li>`).join('')}
+                    </ul>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ─── COPY TO CLIPBOARD ────────────────────────────────────────────────────────
+
+async function copyResult(index) {
+    const r = validationResults[index];
+    const hasError = r.validations.some(v => !v.result);
+    let text = `Validation result for ISBN: ${r.isbn || 'N/A'}\n`;
+    if (r.title) text += `Title: ${r.title}\n`;
+    text += `Status: ${hasError ? 'Failed' : 'Passed'}\n${'─'.repeat(40)}\n`;
+    r.validations.forEach(v => { text += `${v.result ? '✓' : '✗'} ${v.test}: ${v.message}\n`; });
+    text += '─'.repeat(40) + '\n';
+    try {
+        await navigator.clipboard.writeText(text);
+        const btn = document.getElementById(`copy-btn-${index}`);
+        if (btn) {
+            btn.innerHTML = '<i class="bi bi-check-circle"></i>';
+            btn.classList.replace('btn-outline-secondary','btn-outline-success');
+            setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard"></i>'; btn.classList.replace('btn-outline-success','btn-outline-secondary'); }, 2000);
+        }
+    } catch { alert('Copy failed — please try again.'); }
+}
+
+// ─── REPORT DOWNLOAD ─────────────────────────────────────────────────────────
+
+function downloadReport(failedOnly) {
+    if (!validationResults.length) return;
+
+    const ts      = new Date().toLocaleString();
+    const total   = validationResults.length;
+    const passed  = validationResults.filter(r => r.validations.every(v => v.result)).length;
+    const subset  = failedOnly ? validationResults.filter(r => r.validations.some(v => !v.result)) : validationResults;
+
+    if (failedOnly && subset.length === 0) {
+        alert('No failed validations found — all records passed.');
+        return;
+    }
+
+    let report = '';
+    report += '='.repeat(80) + '\n';
+    report += (failedOnly ? 'CUP METADATA VERIFICATION — FAILED RECORDS ONLY\n' : 'CUP METADATA VERIFICATION REPORT\n');
+    report += '='.repeat(80) + '\n';
+    report += `Generated: ${ts}\n\n`;
+    report += 'SUMMARY\n' + '─'.repeat(40) + '\n';
+    report += `Total Records Processed: ${total}\n`;
+    report += `Passed: ${passed}\n`;
+    report += `Failed: ${total - passed}\n`;
+    if (failedOnly) report += `Records in this report: ${subset.length}\n`;
+    report += '\n';
+    report += (failedOnly ? 'FAILED RECORDS\n' : 'VALIDATION RESULTS\n');
+    report += '='.repeat(80) + '\n\n';
+
+    subset.forEach((r, i) => {
+        const hasError = r.validations.some(v => !v.result);
+        report += `${i + 1}. ISBN: ${r.isbn || 'N/A'}\n`;
+        if (r.title) report += `   Title: ${r.title}\n`;
+        report += `   Status: ${hasError ? 'FAILED' : 'PASSED'}\n`;
+        report += '─'.repeat(80) + '\n';
+
+        const totalTests  = r.validations.length;
+        const passedTests = r.validations.filter(v => v.result).length;
+        const failedTests = totalTests - passedTests;
+        report += `   Tests: ${passedTests}/${totalTests} passed`;
+        if (failedTests > 0) report += ` (${failedTests} failed)`;
+        report += '\n';
+
+        const failures = r.validations.filter(v => !v.result);
+        if (failures.length > 0) {
+            report += '   Failed Tests:\n';
+            failures.forEach(v => { report += `   ✗ ${v.test}: ${v.message}\n`; });
+        }
+        report += '\n';
+    });
+
+    report += '='.repeat(80) + '\n' + 'End of Report\n' + '='.repeat(80) + '\n';
+
+    const dateStr  = new Date().toISOString().slice(0,10);
+    const filename = failedOnly ? `cup_verification_failed_${dateStr}.txt` : `cup_verification_summary_${dateStr}.txt`;
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ─── CLEAR ────────────────────────────────────────────────────────────────────
+
+function clearAll() {
+    validationResults = [];
+    showFailedOnly    = false;
+    failedOnlyToggle.checked = false;
+    fileInput.value   = '';
+    resultsPanel.style.display = 'none';
+    uploadArea.style.display   = 'flex';
+    statusAlert.classList.add('d-none');
+    resultsArea.innerHTML = '';
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+
+function showSpinner(msg)   { processingText.textContent = msg; processingSpinner.style.display = 'block'; }
+function updateSpinner(msg) { processingText.textContent = msg; }
+function hideSpinner()      { processingSpinner.style.display = 'none'; }
+
+function showStatus(type, message) {
+    statusAlert.className = 'alert mt-3';
+    statusAlert.classList.remove('d-none');
+    const icons = { success: 'bi-check-circle-fill', error: 'bi-exclamation-triangle-fill', info: 'bi-info-circle-fill' };
+    const classes = { success: 'alert-success', error: 'alert-danger', info: 'alert-info' };
+    statusAlert.classList.add(classes[type] || 'alert-info');
+    statusAlert.innerHTML = `<i class="bi ${icons[type] || icons.info} me-2"></i>${message}`;
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+</script>
+</body>
+</html>
