@@ -512,32 +512,41 @@ function renderResults() {
     }
 
     resultsArea.innerHTML = filtered.map((r, fi) => {
-        const origIdx  = validationResults.indexOf(r);
-        const hasError = r.validations.some(v => !v.result);
-        const label    = r.isbn || `Row ${origIdx + 1}`;
+        const origIdx    = validationResults.indexOf(r);
+        const hasError   = r.validations.some(v => !v.result);
+        const label      = r.isbn || `Row ${origIdx + 1}`;
+        const collapseId = `collapse-${origIdx}`;
         return `
         <div class="col-12 fade-in">
             <div class="card ${hasError ? 'border-danger' : 'border-success'} compact-card">
-                <div class="card-header ${hasError ? 'bg-danger' : 'bg-success'} bg-opacity-10 d-flex justify-content-between align-items-center py-2">
+                <div class="card-header ${hasError ? 'bg-danger' : 'bg-success'} bg-opacity-10 d-flex justify-content-between align-items-center py-2"
+                     style="cursor:pointer;"
+                     data-bs-toggle="collapse" data-bs-target="#${collapseId}"
+                     aria-expanded="false" aria-controls="${collapseId}">
                     <div>
                         <strong>${escHtml(label)}</strong>
                         ${r.title ? `<span class="ms-2 text-muted small">${escHtml(r.title)}</span>` : ''}
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-sm btn-outline-secondary" onclick="copyResult(${origIdx})" id="copy-btn-${origIdx}">
+                        <button class="btn btn-sm btn-outline-secondary"
+                                onclick="event.stopPropagation(); copyResult(${origIdx})"
+                                id="copy-btn-${origIdx}">
                             <i class="bi bi-clipboard"></i>
                         </button>
                         <span class="badge bg-${hasError ? 'danger' : 'success'}">${hasError ? 'Failed' : 'Passed'}</span>
+                        <i class="bi bi-chevron-down text-muted small"></i>
                     </div>
                 </div>
-                <div class="card-body py-2">
-                    <ul class="list-unstyled mb-0 compact-list">
-                        ${r.validations.map(v => `
-                        <li class="d-flex align-items-start py-1">
-                            <i class="bi ${v.result ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'} me-2 flex-shrink-0 mt-1"></i>
-                            <small><strong>${escHtml(v.test)}:</strong> ${escHtml(v.message)}</small>
-                        </li>`).join('')}
-                    </ul>
+                <div class="collapse" id="${collapseId}">
+                    <div class="card-body py-2">
+                        <ul class="list-unstyled mb-0 compact-list">
+                            ${r.validations.map(v => `
+                            <li class="d-flex align-items-start py-1">
+                                <i class="bi ${v.result ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'} me-2 flex-shrink-0 mt-1"></i>
+                                <small><strong>${escHtml(v.test)}:</strong> ${escHtml(v.message)}</small>
+                            </li>`).join('')}
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>`;
