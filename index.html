@@ -130,6 +130,10 @@
                                     <h6 class="mb-0 text-muted small">Failed</h6>
                                     <span class="h4 text-danger" id="totalFailed">0</span>
                                 </div>
+                                <div class="col">
+                                    <h6 class="mb-0 text-muted small">Files Required</h6>
+                                    <span class="h4 text-secondary" id="totalFilesRequired">0</span>
+                                </div>
                             </div>
 
                             <!-- Processing Summary -->
@@ -452,9 +456,10 @@ async function handleFile(file) {
                 paper:         get('paper'),
                 colour:        get('colour'),
                 quality:       get('quality'),
-                binding_style: get('binding_style')
+                binding_style: get('binding_style'),
+                jacket:        get('jacket').toUpperCase()
             };
-            return { isbn: rec.isbn, title: rec.title, validations: validateRecord(rec) };
+            return { isbn: rec.isbn, title: rec.title, jacket: rec.jacket, validations: validateRecord(rec) };
         });
 
         // Compute processing stats
@@ -499,10 +504,15 @@ function renderResults() {
     const failed   = total - passed;
     const filtered = showFailedOnly ? validationResults.filter(r => r.validations.some(v => !v.result)) : validationResults;
 
-    document.getElementById('totalRecords').textContent = total;
-    document.getElementById('totalShowing').textContent = filtered.length;
-    document.getElementById('totalPassed').textContent  = passed;
-    document.getElementById('totalFailed').textContent  = failed;
+    const totalFiles    = validationResults.reduce((sum, r) => sum + 2 + (r.jacket === 'Y' || r.jacket === 'YES' ? 1 : 0), 0);
+    const hiddenFiles   = showFailedOnly ? validationResults.filter(r => r.validations.some(v => !v.result)).reduce((sum, r) => sum + 2 + (r.jacket === 'Y' || r.jacket === 'YES' ? 1 : 0), 0) : 0;
+    const filesRequired = totalFiles - hiddenFiles;
+
+    document.getElementById('totalRecords').textContent       = total;
+    document.getElementById('totalShowing').textContent       = filtered.length;
+    document.getElementById('totalPassed').textContent        = passed;
+    document.getElementById('totalFailed').textContent        = failed;
+    document.getElementById('totalFilesRequired').textContent = filesRequired;
 
     if (filtered.length === 0) {
         resultsArea.innerHTML = `<div class="col-12 text-center text-muted py-3">
@@ -648,6 +658,7 @@ function clearAll() {
     uploadArea.style.display   = 'flex';
     statusAlert.classList.add('d-none');
     resultsArea.innerHTML = '';
+    document.getElementById('totalFilesRequired').textContent = '0';
 }
 
 // ─── UI HELPERS ───────────────────────────────────────────────────────────────

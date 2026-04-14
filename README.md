@@ -63,7 +63,17 @@ A summary bar at the top shows:
 - Total records processed
 - Number currently shown
 - Count of passed and failed records
+- **Files Required** — the total number of print-ready files needed for the records currently shown (see below)
 - Breakdown by binding style, colour type, quality route, and jacket count
+
+### Files Required
+
+The **Files Required** count reflects the number of files that would need to be supplied to fulfil the currently displayed records:
+
+- Every job requires **2 files** (text block + cover)
+- Jobs with a jacket (`pod_xml_Jacket = Y`) require an additional file, so **3 files** in total
+
+When the **Show failed only** toggle is active, the Files Required count updates to show the grand total minus the files attributable to the failed records — giving a view of how many files the passing jobs represent.
 
 ### 3. Filter and Export
 
@@ -206,6 +216,6 @@ The column headers in your Excel file may not match the expected names exactly. 
 
 ---
 
-**Version:** 1.0  
-**Last Updated:** March 2026  
+**Version:** 1.1  
+**Last Updated:** April 2026  
 **Created by:** Colin for Cambridge University Press
