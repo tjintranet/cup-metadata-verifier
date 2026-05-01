@@ -226,6 +226,8 @@ const CONFIG = {
         lamination: { 'Matte': 'Matt' }
     },
 
+    EXTENT_MIN: 64,
+    EXTENT_MAX: 1040,
     SPINE_CALCULATION_FACTOR: 20000,
     HARDBACK_SPINE_ADDITION:  4
 };
@@ -269,6 +271,15 @@ function validateRecord(rec) {
     const missing = Object.entries(required).filter(([,v]) => !v || String(v).trim() === '').map(([k]) => k);
     add('Required Fields', missing.length === 0,
         missing.length === 0 ? 'All required fields are present' : `Missing or empty: ${missing.join(', ')}`);
+
+    // Extent range
+    const extentVal = parseInt(rec.extent);
+    if (!isNaN(extentVal) && rec.extent && String(rec.extent).trim() !== '') {
+        const validExtent = extentVal >= CONFIG.EXTENT_MIN && extentVal <= CONFIG.EXTENT_MAX;
+        add('Extent', validExtent,
+            validExtent ? `Valid extent: ${extentVal}pp`
+                        : `Invalid extent: ${extentVal}pp (must be between ${CONFIG.EXTENT_MIN}pp and ${CONFIG.EXTENT_MAX}pp)`);
+    }
 
     // Binding
     const validBinding = CONFIG.VALID_BINDINGS.has(rec.binding_style);

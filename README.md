@@ -117,20 +117,24 @@ The tool automatically applies the following transformations before validating, 
 
 ## Validation Rules
 
-Each record is checked against the following eight rules.
+Each record is checked against the following nine rules.
 
 ### 1. Required Fields
 
 The following fields must be present and non-empty: ISBN, Trim Height, Trim Width, Extent, Paper, Colour, Quality, Binding Style.
 
-### 2. Binding Style
+### 2. Extent
+
+Page count must be between **64pp** and **1040pp** (inclusive). This rule applies across all paper types and binding styles.
+
+### 3. Binding Style
 
 Must be one of:
 
 - `Cased`
 - `Limp`
 
-### 3. Paper Type
+### 4. Paper Type
 
 Must be one of:
 
@@ -139,27 +143,27 @@ Must be one of:
 - `Clairjet 90 gsm`
 - `Magno Matt 90 gsm`
 
-### 4. Colour
+### 5. Colour
 
 Must be one of:
 
 - `Mono`
 - `Colour`
 
-### 5. Quality / Route
+### 6. Quality / Route
 
 Must be one of:
 
 - `Standard`
 - `Premium`
 
-### 6. Trim Size
+### 7. Trim Size
 
 The width × height combination must be one of the following approved sizes (mm):
 
 `140×216`, `152×229`, `156×234`, `170×244`, `189×246`, `178×254`, `203×254`, `216×280`
 
-### 7. Colour / Paper Compatibility
+### 8. Colour / Paper Compatibility
 
 | Paper | Allowed Colour |
 |---|---|
@@ -168,7 +172,7 @@ The width × height combination must be one of the following approved sizes (mm)
 | Clairjet 90 gsm | Colour only |
 | Magno Matt 90 gsm | Mono or Colour |
 
-### 8. Route / Paper Compatibility
+### 9. Route / Paper Compatibility
 
 | Paper | Allowed Route |
 |---|---|
@@ -216,6 +220,6 @@ The column headers in your Excel file may not match the expected names exactly. 
 
 ---
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Last Updated:** April 2026  
 **Created by:** Colin for Cambridge University Press
