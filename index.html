@@ -273,12 +273,17 @@ function validateRecord(rec) {
         missing.length === 0 ? 'All required fields are present' : `Missing or empty: ${missing.join(', ')}`);
 
     // Extent range
-    const extentVal = parseInt(rec.extent);
-    if (!isNaN(extentVal) && rec.extent && String(rec.extent).trim() !== '') {
-        const validExtent = extentVal >= CONFIG.EXTENT_MIN && extentVal <= CONFIG.EXTENT_MAX;
-        add('Extent', validExtent,
-            validExtent ? `Valid extent: ${extentVal}pp`
-                        : `Invalid extent: ${extentVal}pp (must be between ${CONFIG.EXTENT_MIN}pp and ${CONFIG.EXTENT_MAX}pp)`);
+    const extentRaw = rec.extent ? String(rec.extent).trim() : '';
+    const extentVal = parseInt(extentRaw);
+    if (extentRaw !== '') {
+        if (isNaN(extentVal)) {
+            add('Extent', false, `Invalid extent: '${extentRaw}' is not a valid page count (must be between ${CONFIG.EXTENT_MIN}pp and ${CONFIG.EXTENT_MAX}pp)`);
+        } else {
+            const validExtent = extentVal >= CONFIG.EXTENT_MIN && extentVal <= CONFIG.EXTENT_MAX;
+            add('Extent', validExtent,
+                validExtent ? `Valid extent: ${extentVal}pp`
+                            : `Invalid extent: value in Excel is '${extentRaw}' (${extentVal}pp) — must be between ${CONFIG.EXTENT_MIN}pp and ${CONFIG.EXTENT_MAX}pp`);
+        }
     }
 
     // Binding
